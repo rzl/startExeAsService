@@ -25,6 +25,7 @@ STARTUPINFO si = {sizeof(si)};
 PROCESS_INFORMATION pi;
 //STARTUPINFO si = { sizeof(STARTUPINFO),NULL,L"",NULL,0,0,0,0,0,0,0,STARTF_USESHOWWINDOW,0,0,NULL,0,0,0};      
 bool bRet;
+DWORD processActive;
 TCHAR w_strDir[256];
 TCHAR serverName[1024];
 TCHAR defaultServerName[]=TEXT("SHARP_BS_SERVER8");
@@ -45,6 +46,11 @@ void DoTask()
         w_strDir,
         &si,
         &pi);
+	} else {
+		GetExitCodeProcess(pi.hProcess,&processActive); 
+		if (processActive!=STILL_ACTIVE){
+			bRet=false;
+		}	
 	}
 }
 
@@ -58,6 +64,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//lstrcpy(logFile,w_strDir);
 	//lstrcat(logFile,"log.txt");
 	//ofile.open(logFile);
+
     if(argc>1) 
     { 
         if( memcmp(argv[1],"-i",2)==0) 
@@ -109,8 +116,9 @@ int _tmain(int argc, _TCHAR* argv[])
     } 
     else 
     { 
-        SERVICE_TABLE_ENTRY DispatchTable[]={{serverName,ServiceMain},{NULL,NULL}};   
-        StartServiceCtrlDispatcher(DispatchTable);  
+		printf("\n 使用方法 \n 安装服务 \n -i [\"需要执行的命令\"] [服务名称（设置命令后才可以自定义服务名称）] \n 卸载服务 \n -d [服务名称] \n"); 
+        //SERVICE_TABLE_ENTRY DispatchTable[]={{serverName,ServiceMain},{NULL,NULL}};   
+       // StartServiceCtrlDispatcher(DispatchTable);  
     } 
     
     return 0; 
@@ -165,7 +173,7 @@ void WINAPI ServiceCtrlHandler(DWORD Opcode)
           case SERVICE_CONTROL_STOP: 
 			  TerminateProcess(pi.hProcess, 300);
 			  bRet=false;
-			  //ofile.close();
+			 // ofile.close();
 			  //CloseHandle(pi.hThread);
 			  //CloseHandle(pi.hProcess);
               m_ServiceStatus.dwWin32ExitCode = 0;  
