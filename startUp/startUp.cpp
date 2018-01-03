@@ -31,16 +31,32 @@ TCHAR serverName[1024];
 TCHAR defaultServerName[]=TEXT("SHARP_BS_SERVER8");
 //TCHAR agrvServerName[1024];
 char* p_strDir;
-
+//重定向输出
+SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES),NULL,TRUE}; 
+HANDLE cmdOutput;
+HANDLE cmdInput;
 void DoTask() 
 { 
 	if (!bRet){
+		char logFile[200]="";
+			lstrcat(logFile,w_strDir);
+			lstrcat(logFile,serverName);
+			lstrcat(logFile,".log");
+		cmdOutput = CreateFile(logFile,  
+                        GENERIC_WRITE,  
+                        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,  
+                        &sa,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL); 
+		SetFilePointer (cmdOutput, 0, NULL, FILE_END);
+		si.hStdInput= cmdInput;
+		si.hStdError = cmdOutput;  
+		si.hStdOutput = cmdOutput;
+		si.dwFlags = STARTF_USESTDHANDLES;  
     bRet = CreateProcess(
         NULL,
-        commandLine,
+        agrvCommandLine,
         NULL,
 		NULL,
-        FALSE,
+        TRUE,
         CREATE_NEW_CONSOLE ,
         NULL,
         w_strDir,
@@ -50,6 +66,7 @@ void DoTask()
 		GetExitCodeProcess(pi.hProcess,&processActive); 
 		if (processActive!=STILL_ACTIVE){
 			bRet=false;
+			CloseHandle(cmdOutput);
 		}	
 	}
 }
@@ -78,6 +95,7 @@ int _tmain(int argc, _TCHAR* argv[])
 				lstrcpy(serverName,argv[3]);
 			} else {
 				lstrcpy(serverName,defaultServerName);
+
 			}
         if(InstallService()) 
         printf("\n 服务安装成功 \n"); 
@@ -97,14 +115,17 @@ int _tmain(int argc, _TCHAR* argv[])
             printf("\n 找不到需要卸载的服务 \n"); 
         }
 		else if(memcmp(argv[1],"-e",2)==0){
-			//ofile<<argv[1];
-			//ofile.close();
 		if (argc<3){
 			lstrcpy(agrvCommandLine,commandLine);
 		} else {
 			lstrcpy(agrvCommandLine,argv[2]);
+			if (argv[3]){
+			lstrcpy(serverName,argv[3]);
+			}
 		}
-			
+			//printf("do task");
+			//DoTask();
+			//return 0;
 			SERVICE_TABLE_ENTRY DispatchTable[]={{serverName,ServiceMain},{NULL,NULL}};   
 			StartServiceCtrlDispatcher(DispatchTable); 
 			return 0;
@@ -151,9 +172,10 @@ void WINAPI ServiceMain(DWORD argc, LPTSTR *argv)
     bRunning=true; 
     while(bRunning) 
     {    
-    Sleep(3000); 
+   
     //Place Your Code for processing here....   
     DoTask(); 
+	 Sleep(10000); 
     } 
       return;  
 } 
@@ -172,6 +194,7 @@ void WINAPI ServiceCtrlHandler(DWORD Opcode)
 
           case SERVICE_CONTROL_STOP: 
 			  TerminateProcess(pi.hProcess, 300);
+			  CloseHandle(cmdOutput);
 			  bRet=false;
 			 // ofile.close();
 			  //CloseHandle(pi.hThread);
@@ -197,7 +220,8 @@ BOOL InstallService()
 	GetModuleFileName(NULL,strDir,1024); 
     lstrcat(strDir," -e \"");  
 	lstrcat(strDir,agrvCommandLine);
-	lstrcat(strDir,"\"");
+	lstrcat(strDir,"\" ");
+	lstrcat(strDir,serverName);
     schSCManager = OpenSCManager(NULL,NULL,SC_MANAGER_ALL_ACCESS);   
 
     if (schSCManager == NULL)  
